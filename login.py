@@ -319,13 +319,28 @@ def seeDetailedInfo(cid, movie):
     connection.commit()
     return
 
-def display_watched_movies(cid):
-    cursor.execute('''Select * from started_watching where cid = ?;''', (cid, ))
-    started_watching = cursor.fetchall()
-    index = 0
-    while(index < len(cast)):
-        print(str(index+1) + ". " + cast[index][0] + " played " + str(cast[index][1]))
-        index = index + 1    
+def display_watched_movies(sid, cid):
+    while(1): 
+        cursor.execute('''Select movies.title, movies.mid, started_watching.sdate, movies.runtime  from started_watching, movies where cid = ? and movies.mid = started_watching.mid and started_watching.sid = ?;''', (cid, sid,))
+        print("Movies that you are watching right now: ")
+        watching = cursor.fetchall()
+        index = 0        
+        while(index < len(watching)):
+            print(str(index+1) + ". " + watching[index][0])
+            index = index + 1 
+        stopWatching = input("Do you want to stop watching movies? If so, enter a number that you would like to stop wtaching: ")
+        while(index < len(watching)):
+            if stopWatching == str(index+1):
+                current_date = time.strftime("%Y-%m-%d %H:%M:%S")
+                cursor.execute('''Insert into watch(sid, cid, mid, duration) Values (?, ?, ?, MIN(DATEDIFF(minute, ?, ?), ?));''', (sid, cid, watching[index][1], watching[index][2], current_date,watching[index][3] ))
+                cursor.execute('''Delete from started_watching where cid = ? and mid = ? and sid = ?''', (cid,  watching[index][1], sid,))
+                break
+            index = index + 1
+            if index == len(watching):
+                print("You entered invalid index")
+        
+    
+    
     
 
                                    
