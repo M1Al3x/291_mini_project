@@ -176,28 +176,124 @@ def login():
 def start_session(cid, count):
     global connection, cursor
     current_date = time.strftime("%Y-%m-%d %H:%M:%S")
-    
-    sid = count+1
+    sid = 1
+    get_sid = 1
+    while get_sid:
+        cursor.execute("SELECT * FROM sessions where sid = ?;", (sid,))
+        get_sid=cursor.fetchall()
+        sid = sid + 1
     duration = None
     data = (sid, cid, current_date, duration)
     cursor.execute('INSERT INTO sessions (sid, cid, sdate, duration) VALUES (?,?,?,?);', data) 
     connection.commit()    
     return sid
 
+
 def search_movie():
     global connection, cursor
     #ask the user for the keywords and add it to a list
-    num_keywords = int(input('what is the number of key words you want to input?'))
-    i = 0
-    keywords = []
-    while i < num_keywords:
-        keyword = input("please enter the {} keyword: ".format(i+1))
-        keywords.append(keyword)
-    
-    
+    keywords = input("Enter keywords for searching movie: ")
+    keywords_list = keywords.split()
+    keywords_list_updated = ()
+    for keyword in keywords_list:
+        keyword = "%" + keyword + "%"
+        keywords_list_updated = keywords_list_updated + (keyword,)
+        keywords_list_updated = keywords_list_updated + (keyword,)
+        keywords_list_updated = keywords_list_updated + (keyword,)
+        keywords_list_updated = keywords_list_updated + (keyword,)
+    select_string = '''Select m1.title, m1.year, m1.runtime, m1.mid (
+                     '''
+    for index in range(len(keywords_list)):
+        if index != len(keywords_list) - 1:
+            select_string = select_string + '''(m1.title like ?  or m1.year like ? 
+                                                or EXISTS
+                                               (SELECT m2.mid
+                                               from movies m2, casts c, moviePeople p 
+                                               where m2.mid = c.mid 
+                                               and p.pid = c.pid
+                                               and m2.mid = m1.mid 
+                                               and (p.name like ?
+                                                     or c.role like ?)))
+                                                +
+                                            '''
+        else:
+            select_string = select_string + '''(m1.title like ?  or m1.year like ? 
+                                               or EXISTS
+                                               (SELECT m2.mid
+                                               from movies m2, casts c, moviePeople p 
+                                               where m2.mid = c.mid 
+                                               and p.pid = c.pid
+                                               and m2.mid = m1.mid 
+                                               and (p.name like ?
+                                                     or c.role like ?)))) as 'cntGrp'
+                                               from movies m1
+                                               where cntGrp>=1
+                                               order by cntGrp DESC;  
+                                            '''  
+    print(select_string)
+    print(keywords_list_updated)
+    cursor.execute(select_string, keywords_list_updated)
+    movies = cursor.fetchall()
+    print("Movies by the given search: ")
+    index = 0
+    indexEd = 0
+    i = "n"
+    indexToCheck = -1
+    while(i!="c"):
+        if i=="n":
+            while(index < len(movies) and index < indexEd + 5):
+                print(str(index+1) + ". " + movies[index][0] + ", " + str(movies[index][1]) + " year, " + str(movies[index][2]) + " minutes")
+                index = index + 1
+        i = input("In order to view detailed information about movie enter its number. If you want to see next movies in the search, enter 'n': ")
+        while indexEd < index:
+            if i == str(indexEd+1):
+                indexToCheck = indexEd
+                i = "c"
+            indexEd = indexEd + 1
+    if i=="c":
+        seeDetailedInfo("c100",movies[indexEd])
     connection.commit()
     return
-                                   
+
+    
+    
+def seeDetailedInfo(cid, movie):
+    print("Detailed information for " + movie[0] + ", " + str(movie[1]) + " year, " + str(movie[2]) + " minutes")
+    mid = movie[3]
+    cursor.execute('''SELECT COUNT(DISTINCT w.cid)
+                      from movies m, watch w
+                      where m.mid = w.mid
+                      and m.mid = ?
+                      and w.duration*2>=m.runtime''', (mid,))    
+    print("Cast: ")
+    cursor.execute('''SELECT p.name, c.role, p.pid
+                      from movies m, casts c, moviePeople p
+                      where m.mid = c.mid
+                      and c.pid = p.pid
+                      and m.mid = ?''', (mid,))
+    cast = cursor.fetchall()
+    index = 0
+    while(index < len(cast)):
+        print(str(index+1) + ". " + cast[index][0] + "played " + str(cast[index][1]))
+        index = index + 1
+    inpMovie = ''
+    while inpMovie != 'w':
+        inpMovie = input("Do you want to subscribe on anyone? If yes, enter a number of cast member. If you want to start watching movie, enter 'w': ")
+        index = 0
+        subscr = False
+        while(index < len(cast)):
+            if(str(index+1) == inpMovie):
+                cursor.execute('''Insert into follows(cid, pid) Values (?, ?);''', (cid,  cast[index][2]))
+                print("Successfully subscribed")
+                subscr = True
+                break
+        if subscr == False and inpMovie != 'w':
+            print("Incorrect input")
+            
+        
+        
+        
+    
 def main():
     global connection, cursor
     
@@ -206,20 +302,18 @@ def main():
     connect(path)
     define_tables()
     insert_values()
-    cursor.execute("SELECT	*	FROM	customers;" )
-    students=cursor.fetchall()  
-    login()
-    count = 1 # this is for unique session id
-    
-    #testing   
-    
+    search_movie()
+    count = 1 # this is for unique session id    
    
     
     connection.commit()
     connection.close()
-main()
+if __name__ == "__main__":
+    main()
 
 
 
 
-     
+                                        
+                                        
+                                  
