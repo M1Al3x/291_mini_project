@@ -275,7 +275,7 @@ def search_by_key_words():
     movies = cursor.fetchall()
     return movies
     
-def seeDetailedInfo(cid, movie):
+def seeDetailedInfo(sid, cid, movie):
     print("Detailed information for " + movie[0] + ", " + str(movie[1]) + " year, " + str(movie[2]) + " minutes")
     mid = movie[3]
     cursor.execute('''SELECT COUNT(DISTINCT w.cid)
@@ -316,6 +316,9 @@ def seeDetailedInfo(cid, movie):
             index = index + 1
         if subscr == False and inpMovie != 'w':
             print("Incorrect input")
+    current_date = time.strftime("%Y-%m-%d %H:%M:%S")
+    cursor.execute('''Insert into started_watching(sid, cid, mid, sdate) Values (?, ?, ?, ?));''', (sid, cid, mid, current_date,))    
+    display_watched_movies(sid, cid)
     connection.commit()
     return
 
@@ -332,18 +335,79 @@ def display_watched_movies(sid, cid):
         while(index < len(watching)):
             if stopWatching == str(index+1):
                 current_date = time.strftime("%Y-%m-%d %H:%M:%S")
-                cursor.execute('''Insert into watch(sid, cid, mid, duration) Values (?, ?, ?, MIN(DATEDIFF(minute, ?, ?), ?));''', (sid, cid, watching[index][1], watching[index][2], current_date,watching[index][3] ))
-                cursor.execute('''Delete from started_watching where cid = ? and mid = ? and sid = ?''', (cid,  watching[index][1], sid,))
+                cursor.execute('''Insert into watch(sid, cid, mid, duration) Values (?, ?, ?, MIN(DATEDIFF(minute, ?, ?), ?));''', (sid, cid, watching[index][1], watching[index][2], current_date,watching[index][3], ))
+                cursor.execute('''Delete from started_watching where cid = ? and mid = ? and sid = ?;''', (cid,  watching[index][1], sid,))
                 break
-            index = index + 1
             if index == len(watching):
-                print("You entered invalid index")
+                print("You entered invalid index")            
+            index = index + 1
+            
+def add_movie():
+    global connection, cursor
+    # define the varibles first
+    option = input("to add a movie enter movie, to add a cast memeber enter cast:")
+    if option.lower() == 'movie':
+        movie_id = input('please enter a unique movie id: ')
         
-    
-    
-    
-
-                                   
+        # find all the movie id's
+        cursor.execute("select mid from movies;")
+        all_mid = cursor.fetchall()
+        i = 0
+        not_found = True
+        while i < len(all_mid) and not_found:
+            if all_mid[i][0] == movie_id:
+                not_found = False
+            i = i+1
+            
+        if not_found:
+            title = input('please enter the movie id')
+            year = int(input('please enter the production year: '))
+            runtime = int(input('please enter the runtime: '))
+            
+            data = (movie_id, title, year, runtime)
+            cursor.execute('INSERT INTO movies (mid, title, year, runtime) VALUES (?,?,?,?);', data)             
+        else:
+            # the id entered it not unique go back to main screen
+            print("the enterd movie id is not unique it already exists")
+            return
+        
+    elif option.lower() == 'cast':
+        cast_id = (int(input('please enter the cast members id: ')).lower(),)
+        # find all cast members
+        cursor.execute('SELECT pid FROM moviePeople WHERE pid = ?;', cast_id)  
+        name_birth = cursor.fetchone()[0]
+        if name_birth == []:
+            # the cast memeber does not exist
+            print("the cast memeber does not exist, please add them")
+            pid = cast_id
+            name = input("please enter the name to add to: ").lower()
+            birthyear = int(input('please enter the birth year: '))
+            data = (pid, name, birthyear)
+            cursor.execute('INSERT INTO moviePeople (pid, name, birthYear) VALUES (?,?,?);', data) 
+            print("you have added succefully!")            
+            
+        else:
+            # the cast memeber exists
+            name = name_birth[0]
+            birthyear = name_birth[1]
+            print("the name is {}, and the birthyear is {} is this ".format(name, birthyear))
+            not_reject = input("confim that this is the cast member to add a role to, type yes or no: ").lower()
+            if not_reject == 'yes':
+                # add role to the cast memeber
+                pid = cast_id
+                role = input("please enter the role to add to: ").lower()
+                mid = int(input('please enter the mid of the movie: '))
+                data = (mid, pid, role)
+                cursor.execute('INSERT INTO casts (mid, pid, role) VALUES (?,?,?);', data) 
+                print("you have added succefully!")
+            elif not_reject == 'no':
+                print('you have rejected the cast memeber, now returning to the main page.')
+            else:
+                print('please enter a valid choice')
+                
+    connection.commit()
+    return  
+                               
 def main():
     global connection, cursor
     
