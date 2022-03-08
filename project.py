@@ -12,7 +12,15 @@ def connect(path):
     cursor.execute(' PRAGMA foreign_keys=ON; ')
     connection.commit()
     return
-   
+
+def insert_values():
+    global connection, cursor
+    sql_file = open("prj-test.sql")
+    sql_as_string = sql_file.read()
+    cursor.executescript(sql_as_string)
+    connection.commit()  
+    return
+
 def define_tables():
     global connection, cursor
     cursor.executescript('''
@@ -124,22 +132,24 @@ def search_movie():
 def add_movie():
     global connection, cursor
     # define the varibles first
-    option = input("to add a movie enter movie, to add a cast memeber enter cast:")
+    option = input("to add a movie enter movie, to add a cast memeber enter cast:").lower()
     if option.lower() == 'movie':
-        movie_id = input('please enter a unique movie id: ')
+        movie_id = int(input('please enter a unique movie id: '))
         
         # find all the movie id's
         cursor.execute("select mid from movies;")
         all_mid = cursor.fetchall()
         i = 0
         not_found = True
+    
         while i < len(all_mid) and not_found:
             if all_mid[i][0] == movie_id:
                 not_found = False
             i = i+1
             
         if not_found:
-            title = input('please enter the movie id')
+            
+            title = input('please enter the title: ')
             year = int(input('please enter the production year: '))
             runtime = int(input('please enter the runtime: '))
             
@@ -147,14 +157,15 @@ def add_movie():
             cursor.execute('INSERT INTO movies (mid, title, year, runtime) VALUES (?,?,?,?);', data)             
         else:
             # the id entered it not unique go back to main screen
-            print("the enterd movie id is not unique it already exists")
+            print("the enterd movie id is not unique it already exists, you will be returned to the home page")
             return
         
     elif option.lower() == 'cast':
-        cast_id = (int(input('please enter the cast members id: ')).lower(),)
+        cast_id = (input('please enter the cast members id: ').lower(),)
         # find all cast members
-        cursor.execute('SELECT pid FROM moviePeople WHERE pid = ?;', cast_id)  
-        name_birth = cursor.fetchone()[0]
+        cursor.execute('SELECT name, birthYear FROM moviePeople WHERE pid = ?;', cast_id)  
+        name_birth = cursor.fetchone()
+    
         if name_birth == []:
             # the cast memeber does not exist
             print("the cast memeber does not exist, please add them")
@@ -169,7 +180,7 @@ def add_movie():
             # the cast memeber exists
             name = name_birth[0]
             birthyear = name_birth[1]
-            print("the name is {}, and the birthyear is {} is this ".format(name, birthyear))
+            print("the name is {}, and the birthyear is {} ".format(name, birthyear))
             not_reject = input("confim that this is the cast member to add a role to, type yes or no: ").lower()
             if not_reject == 'yes':
                 # add role to the cast memeber
@@ -183,23 +194,52 @@ def add_movie():
                 print('you have rejected the cast memeber, now returning to the main page.')
             else:
                 print('please enter a valid choice')
+    else:
+        print('that is not a correct option, returnning to home page')
                 
     connection.commit()
-    return  
+    return    
 
+def update_recommendation():
+    global connection, cursor
+    selection = input('type 1 for monthly report, 2 for annual, 3 for all time report: ')
+    # see the selection
+    range_a = 0
+    range_b = 0
+    
+    if selection == '1':
+        pass
+    elif selection == '2':
+        pass
+    elif selection == '3':
+        pass
+    else:
+        print('print this is not a valid choice, you will be returned to the main page')
+        return
+    
+    choice = input('type 1 for monthly report, 2 for annual, 3 for all time report: ')
+    
+    connection.commit()
+    return
+                          
 def main():
     global connection, cursor
     
     # connection and set up tables
     path = "./register.db"
     connect(path)
-    define_tables()
+    # define_tables()
     count = 1 # this is for unique session id
+    # insert values
+    # insert_values()
+    while True:
+        add_movie()
     
     #testing   
-    
+    '''cursor.execute("select * from customers;")
+    customers = cursor.fetchall()
+    print(customers)'''
    
-    
     connection.commit()
     connection.close()
 main()
