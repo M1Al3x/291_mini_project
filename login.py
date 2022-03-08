@@ -92,6 +92,15 @@ def define_tables():
       eid		char(4),
       pwd		text,
       primary key (eid)
+    );
+    create table started_watching (
+      sid		int,
+      cid		char(4),
+      mid		int,
+      sdate		date,
+      primary key (sid,cid,mid),
+      foreign key (sid,cid) references sessions,
+      foreign key (mid) references movies
     );''')
     connection.commit()
     return
@@ -192,6 +201,38 @@ def start_session(cid, count):
 def search_movie():
     global connection, cursor
     #ask the user for the keywords and add it to a list
+    movies = search_by_key_words() 
+    print("Movies by the given search: ")
+    index = 0
+    indexEd = 0
+    i = "n"
+    indexToCheck = -1
+    while(i!="c"):
+        if i=="n":
+            while(index < len(movies) and index < indexEd + 5):
+                print(str(index+1) + ". " + movies[index][0] + ", " + str(movies[index][1]) + " year, " + str(movies[index][2]) + " minutes")
+                index = index + 1
+        i = input("In order to view detailed information about movie enter its number. If you want to see next movies in the search, enter 'n'. If you want to serach another movie press s: ")
+        if i=="s":
+            movies = search_by_key_words() 
+            print("Movies by the given search: ")
+            index = 0
+            indexEd = 0
+            i = "n"
+            indexToCheck = -1
+        else:
+            while indexEd < index:
+                if i == str(indexEd+1):
+                    indexToCheck = indexEd
+                    i = "c"
+                    break
+                indexEd = indexEd + 1
+    if i=="c":
+        seeDetailedInfo("c100",movies[indexEd])
+    connection.commit()
+    return
+
+def search_by_key_words():
     keywords = input("Enter keywords for searching movie: ")
     keywords_list = keywords.split()
     keywords_list_updated = ()
@@ -201,7 +242,7 @@ def search_movie():
         keywords_list_updated = keywords_list_updated + (keyword,)
         keywords_list_updated = keywords_list_updated + (keyword,)
         keywords_list_updated = keywords_list_updated + (keyword,)
-    select_string = '''Select m1.title, m1.year, m1.runtime, m1.mid (
+    select_string = '''Select m1.title, m1.year, m1.runtime,m1.mid, (
                      '''
     for index in range(len(keywords_list)):
         if index != len(keywords_list) - 1:
@@ -230,32 +271,9 @@ def search_movie():
                                                where cntGrp>=1
                                                order by cntGrp DESC;  
                                             '''  
-    print(select_string)
-    print(keywords_list_updated)
     cursor.execute(select_string, keywords_list_updated)
     movies = cursor.fetchall()
-    print("Movies by the given search: ")
-    index = 0
-    indexEd = 0
-    i = "n"
-    indexToCheck = -1
-    while(i!="c"):
-        if i=="n":
-            while(index < len(movies) and index < indexEd + 5):
-                print(str(index+1) + ". " + movies[index][0] + ", " + str(movies[index][1]) + " year, " + str(movies[index][2]) + " minutes")
-                index = index + 1
-        i = input("In order to view detailed information about movie enter its number. If you want to see next movies in the search, enter 'n': ")
-        while indexEd < index:
-            if i == str(indexEd+1):
-                indexToCheck = indexEd
-                i = "c"
-            indexEd = indexEd + 1
-    if i=="c":
-        seeDetailedInfo("c100",movies[indexEd])
-    connection.commit()
-    return
-
-    
+    return movies
     
 def seeDetailedInfo(cid, movie):
     print("Detailed information for " + movie[0] + ", " + str(movie[1]) + " year, " + str(movie[2]) + " minutes")
@@ -264,7 +282,9 @@ def seeDetailedInfo(cid, movie):
                       from movies m, watch w
                       where m.mid = w.mid
                       and m.mid = ?
-                      and w.duration*2>=m.runtime''', (mid,))    
+                      and w.duration*2>=m.runtime''', (mid,)) 
+    watched_by = cursor.fetchone()
+    print("The movie is watched by " + str(watched_by[0]) + " customers.")
     print("Cast: ")
     cursor.execute('''SELECT p.name, c.role, p.pid
                       from movies m, casts c, moviePeople p
@@ -274,7 +294,7 @@ def seeDetailedInfo(cid, movie):
     cast = cursor.fetchall()
     index = 0
     while(index < len(cast)):
-        print(str(index+1) + ". " + cast[index][0] + "played " + str(cast[index][1]))
+        print(str(index+1) + ". " + cast[index][0] + " played " + str(cast[index][1]))
         index = index + 1
     inpMovie = ''
     while inpMovie != 'w':
@@ -283,17 +303,32 @@ def seeDetailedInfo(cid, movie):
         subscr = False
         while(index < len(cast)):
             if(str(index+1) == inpMovie):
-                cursor.execute('''Insert into follows(cid, pid) Values (?, ?);''', (cid,  cast[index][2]))
-                print("Successfully subscribed")
+                cursor.execute('''Select * from follows where cid = ? and pid = ?;''', (cid,  cast[index][2]))
+                is_followed = cursor.fetchall()
+                print(is_followed)
+                if not is_followed:
+                    cursor.execute('''Insert into follows(cid, pid) Values (?, ?);''', (cid,  cast[index][2]))
+                    print("Successfully subscribed")
+                else:
+                    print("Already subscribed")
                 subscr = True
                 break
+            index = index + 1
         if subscr == False and inpMovie != 'w':
             print("Incorrect input")
-            
-        
-        
-        
+    connection.commit()
+    return
+
+def display_watched_movies(cid):
+    cursor.execute('''Select * from started_watching where cid = ?;''', (cid, ))
+    started_watching = cursor.fetchall()
+    index = 0
+    while(index < len(cast)):
+        print(str(index+1) + ". " + cast[index][0] + " played " + str(cast[index][1]))
+        index = index + 1    
     
+
+                                   
 def main():
     global connection, cursor
     
@@ -303,7 +338,10 @@ def main():
     define_tables()
     insert_values()
     search_movie()
-    count = 1 # this is for unique session id    
+    count = 1 # this is for unique session id
+    
+    #testing   
+    
    
     
     connection.commit()
