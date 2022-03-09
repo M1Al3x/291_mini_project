@@ -657,7 +657,7 @@ def control():
 def main():
     global connection, cursor
     # connection and set up tables
-    data_base_name = sys.argv
+    data_base_name = sys.argv[1]
     path = "./{}".format(data_base_name)
     # path = "./register.db"
     connect(path)
