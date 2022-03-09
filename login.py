@@ -349,12 +349,6 @@ def add_movie():
     if option.lower() == 'movie':
         movie_id = input('please enter a unique movie id: ')
         
-        if movie_id.isdigit():
-            movie_id = int(movie_id)
-        else:
-            print('please enter a integer, you will be returned to home screen')
-            return
-        
         # find all the movie id's
         cursor.execute("select mid from movies;")
         all_mid = cursor.fetchall()
@@ -366,7 +360,7 @@ def add_movie():
             i = i+1
             
         if not_found:
-            title = input('please enter the title: ')
+            title = input('please enter the movie id')
             year = int(input('please enter the production year: '))
             runtime = int(input('please enter the runtime: '))
             
@@ -378,14 +372,14 @@ def add_movie():
             return
         
     elif option.lower() == 'cast':
-        cast_id = (input('please enter the cast members id: ').lower(),)
+        cast_id = (int(input('please enter the cast members id: ')).lower(),)
         # find all cast members
-        cursor.execute('SELECT name, birthYear FROM moviePeople WHERE pid = ?;', cast_id)  
-        name_birth = cursor.fetchone()
+        cursor.execute('SELECT pid FROM moviePeople WHERE pid = ?;', cast_id)  
+        name_birth = cursor.fetchone()[0]
         if name_birth == []:
             # the cast memeber does not exist
             print("the cast memeber does not exist, please add them")
-            pid = cast_id[0]
+            pid = cast_id
             name = input("please enter the name to add to: ").lower()
             birthyear = int(input('please enter the birth year: '))
             data = (pid, name, birthyear)
@@ -400,16 +394,9 @@ def add_movie():
             not_reject = input("confim that this is the cast member to add a role to, type yes or no: ").lower()
             if not_reject == 'yes':
                 # add role to the cast memeber
-                pid = cast_id[0]
+                pid = cast_id
                 role = input("please enter the role to add to: ").lower()
-                mid = input('please enter the mid of the movie: ')
-                
-                if mid.isdigit():
-                    mid = int(mid)
-                else:
-                    print('please enter a integer, you will be returned to home screen')
-                    return  
-                
+                mid = int(input('please enter the mid of the movie: '))
                 data = (mid, pid, role)
                 cursor.execute('INSERT INTO casts (mid, pid, role) VALUES (?,?,?);', data) 
                 print("you have added succefully!")
@@ -419,7 +406,7 @@ def add_movie():
                 print('please enter a valid choice')
                 
     connection.commit()
-    return 
+    return  
                                
 def main():
     global connection, cursor
