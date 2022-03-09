@@ -95,6 +95,10 @@ def login():
     else:
         username = input("Enter your username: ")
         username = username.lower()
+        while len(username)>4:
+            print("\nUsername should contain maximum 4 characters!!!\n")
+            username = input("Enter your username: ")
+            username = username.lower()            
         cursor.execute("SELECT pwd FROM customers where lower(cid) = ?;", (username,))
         user_exists=cursor.fetchall()
         cursor.execute("SELECT pwd FROM editors where lower(eid) = ?;", (username,))
@@ -262,29 +266,31 @@ def search_by_key_words():
     return movies
     
 def seeDetailedInfo(sid, cid, movie):
-    print("\n\nDetailed information for " + movie[0] + ", " + str(movie[1]) + " year, " + str(movie[2]) + " minutes")
-    mid = movie[3]
-    cursor.execute('''SELECT COUNT(DISTINCT w.cid)
-                      from movies m, watch w
-                      where m.mid = w.mid
-                      and m.mid = ?
-                      and w.duration*2>=m.runtime''', (mid,)) 
-    watched_by = cursor.fetchone()
-    print("\nThe movie is watched by " + str(watched_by[0]) + " customers.\n")
-    print("Cast: ")
-    cursor.execute('''SELECT p.name, c.role, p.pid
-                      from movies m, casts c, moviePeople p
-                      where m.mid = c.mid
-                      and c.pid = p.pid
-                      and m.mid = ?''', (mid,))
-    cast = cursor.fetchall()
-    index = 0
-    while(index < len(cast)):
-        print(str(index+1) + ". " + cast[index][0] + " played " + str(cast[index][1]))
-        index = index + 1
     inpMovie = ''
-    while inpMovie != 'w':
-        inpMovie = input("Do you want to subscribe on anyone? If yes, enter a number of cast member. If you want to start watching movie, enter 'w': ")
+    while inpMovie != 'w' and inpMovie != 'q':
+        print("\n\nDetailed information for " + movie[0] + ", " + str(movie[1]) + " year, " + str(movie[2]) + " minutes")
+        mid = movie[3]
+        cursor.execute('''SELECT COUNT(DISTINCT w.cid)
+                          from movies m, watch w
+                          where m.mid = w.mid
+                          and m.mid = ?
+                          and w.duration*2>=m.runtime''', (mid,)) 
+        watched_by = cursor.fetchone()
+        print("\nThe movie is watched by " + str(watched_by[0]) + " customers.\n")
+        print("Cast: ")
+        cursor.execute('''SELECT p.name, c.role, p.pid
+                          from movies m, casts c, moviePeople p
+                          where m.mid = c.mid
+                          and c.pid = p.pid
+                          and m.mid = ?''', (mid,))
+        cast = cursor.fetchall()
+        index = 0
+        while(index < len(cast)):
+            print(str(index+1) + ". " + cast[index][0] + " played " + str(cast[index][1]))
+            index = index + 1
+        print("\n")
+        inpMovie = ''
+        inpMovie = input("If you want to go back to main screen - enter 'q'. \nDo you want to subscribe on anyone? If yes, enter a number of cast member. \nIf you want to start watching movie, enter 'w':")
         index = 0
         subscr = False
         while(index < len(cast)):
@@ -293,7 +299,7 @@ def seeDetailedInfo(sid, cid, movie):
                 is_followed = cursor.fetchall()
                 if not is_followed:
                     cursor.execute('''Insert into follows(cid, pid) Values (?, ?);''', (cid,  cast[index][2]))
-                    print("Successfully subscribed")
+                    print("\nSuccessfully subscribed")
                 else:
                     print("Already subscribed")
                 subscr = True
@@ -345,79 +351,104 @@ def display_watched_movies(sid, cid):
 def add_movie():
     global connection, cursor
     # define the varibles first
-    option = input("to add a movie enter movie, to add a cast memeber enter cast:")
-    if option.lower() == 'movie':
-        movie_id = input('please enter a unique movie id: ')
+    movie_id = input('please enter a unique movie id: ')
+    
+    if movie_id.isdigit():
+        movie_id = int(movie_id)
+    else:
+        print('please enter a integer, you will be returned to home screen')
+        return
+    
+    # find all the movie id's
+    cursor.execute("select mid from movies;")
+    all_mid = cursor.fetchall()
+    i = 0
+    not_found = True
+    while i < len(all_mid) and not_found:
+        if all_mid[i][0] == movie_id:
+            not_found = False
+        i = i+1
         
-        if movie_id.isdigit():
-            movie_id = int(movie_id)
+    if not_found:
+        title = input('please enter the title: ')
+        year = input('please enter the production year: ')
+        if year.isdigit():
+            year = int(year)
         else:
             print('please enter a integer, you will be returned to home screen')
-            return
+            return            
         
-        # find all the movie id's
-        cursor.execute("select mid from movies;")
-        all_mid = cursor.fetchall()
-        i = 0
-        not_found = True
-        while i < len(all_mid) and not_found:
-            if all_mid[i][0] == movie_id:
-                not_found = False
-            i = i+1
-            
-        if not_found:
-            title = input('please enter the title: ')
-            year = int(input('please enter the production year: '))
-            runtime = int(input('please enter the runtime: '))
-            
-            data = (movie_id, title, year, runtime)
-            cursor.execute('INSERT INTO movies (mid, title, year, runtime) VALUES (?,?,?,?);', data)             
-        else:
-            # the id entered it not unique go back to main screen
-            print("the enterd movie id is not unique it already exists")
-            return
+        runtime = input('please enter the runtime: ')
         
-    elif option.lower() == 'cast':
-        cast_id = (input('please enter the cast members id: ').lower(),)
-        # find all cast members
-        cursor.execute('SELECT name, birthYear FROM moviePeople WHERE pid = ?;', cast_id)  
-        name_birth = cursor.fetchone()
-        if name_birth == []:
-            # the cast memeber does not exist
-            print("the cast memeber does not exist, please add them")
-            pid = cast_id[0]
-            name = input("please enter the name to add to: ").lower()
-            birthyear = int(input('please enter the birth year: '))
-            data = (pid, name, birthyear)
-            cursor.execute('INSERT INTO moviePeople (pid, name, birthYear) VALUES (?,?,?);', data) 
-            print("you have added succefully!")            
-            
+        if runtime.isdigit():
+            runtime = int(runtime)
         else:
-            # the cast memeber exists
-            name = name_birth[0]
-            birthyear = name_birth[1]
-            print("the name is {}, and the birthyear is {} is this ".format(name, birthyear))
-            not_reject = input("confim that this is the cast member to add a role to, type yes or no: ").lower()
-            if not_reject == 'yes':
-                # add role to the cast memeber
-                pid = cast_id[0]
-                role = input("please enter the role to add to: ").lower()
-                mid = input('please enter the mid of the movie: ')
-                
-                if mid.isdigit():
-                    mid = int(mid)
+            print('please enter a integer, you will be returned to home screen')
+            return                        
+        
+        data = (movie_id, title, year, runtime)
+        cursor.execute('INSERT INTO movies (mid, title, year, runtime) VALUES (?,?,?,?);', data)
+        cursor.execute("select * from movies where mid=? ;", (movie_id,))
+        movies = cursor.fetchall()
+        print("you have added succefully! this is what is added:", movies)
+        
+        continue_program = True
+        while continue_program:
+            cast_id = input("please enter the cast members id or to quit adding cast member enter 'q': ").lower()
+            if cast_id != 'q':
+                if 4 >= len(cast_id):
+                    # find all cast members
+                    cursor.execute('SELECT name, birthYear FROM moviePeople WHERE pid = ?;', (cast_id,))  
+                    name_birth = cursor.fetchall()
+             
+                    if name_birth == []:
+                        # the cast memeber does not exist
+                        print("the cast memeber does not exist, please add them")
+                        pid = cast_id
+                        name = input("please enter the name to add to: ").lower()
+                        birthyear = int(input('please enter the birth year: '))
+                        data = (pid, name, birthyear)
+                        cursor.execute('INSERT INTO moviePeople (pid, name, birthYear) VALUES (?,?,?);', data) 
+                        connection.commit()
+                        print("you have added succefully!")            
+                        
+                    else:
+                        cursor.execute('SELECT pid FROM casts WHERE pid = ? and mid = ?;', (cast_id, movie_id,))  
+                        casts = cursor.fetchall()   
+                        
+                        if casts == []:
+                            name_birth = name_birth[0]
+                            # the cast memeber exists
+                            name = name_birth[0]
+                            birthyear = name_birth[1]
+                            print("the name is {}, and the birthyear is {} is this ".format(name, birthyear))
+                            not_reject = input("confim that this is the cast member to add a role to, type yes or no: ").lower()
+                            if not_reject == 'yes':
+                                # add role to the cast memeber
+                                pid = cast_id
+                                role = input("please enter the role to add to: ").lower()
+                                mid = movie_id
+                                data = (mid, pid, role)
+                                cursor.execute('INSERT INTO casts (mid, pid, role) VALUES (?,?,?);', data) 
+                                print("you have added succefully!")
+                            elif not_reject == 'no':
+                                print('you have rejected the cast memeber, now returning to the main page.')
+                            else:
+                                print('please enter a valid choice')
+                        else:
+                            print('this memeber is already playing a role in this movie please pick a different one')
                 else:
-                    print('please enter a integer, you will be returned to home screen')
-                    return  
-                
-                data = (mid, pid, role)
-                cursor.execute('INSERT INTO casts (mid, pid, role) VALUES (?,?,?);', data) 
-                print("you have added succefully!")
-            elif not_reject == 'no':
-                print('you have rejected the cast memeber, now returning to the main page.')
+                    print('please enter a pid that is less than 4 charcters')
             else:
-                print('please enter a valid choice')
-                
+                connection.commit()
+                return
+        
+    else:
+        # the id entered it not unique go back to main screen
+        print("the enterd movie id is not unique it already exists")
+        connection.commit()
+        return
+     
     connection.commit()
     return  
 
@@ -426,7 +457,6 @@ def update_recommendation():
     selection = input('type 1 for monthly report, 2 for annual, 3 for all time report: ')
     # see the selection
     current_date = time.strftime("%Y-%m-%d")
-    print(current_date)
     
     if selection == '1':
         cursor.execute('''select w1.mid, w2.mid, count(Distinct w1.cid) from watch w1, watch w2, sessions s1, sessions s2, movies m1, movies m2
@@ -497,7 +527,7 @@ def update_recommendation():
     
     countinue_program = True
     while countinue_program:
-        pair_number = input('1.to select a pair enter the pair number.\n2.to quit update reconmmendations enter q.\nplease select an option: ')
+        pair_number = input('1.to select a pair enter the pair number.\n2.to quit update recommendations enter q.\nplease select an option: ')
         if pair_number == 'q':
             countinue_program = False
         
@@ -509,15 +539,40 @@ def update_recommendation():
                 else:
                     pair_number = int(pair_number)
                     if display_pairs[pair_number][3] == 'not in':
-                        option = input('this pair is not in the reconmmendations, add or not add(y/n): ')
+                        option = input('this pair is not in the recommendations, add or not add(y/n): ')
                         if option.lower() == 'y':
-                            cursor.execute('INSERT INTO reconmmendations (watched, recommended, score) VALUES (?,?,?);', (display_pairs[pair_number][0],display_pairs[pair_number][1], display_pairs[pair_number][4],))
-                            print('added successful!')
+                            score = input('please enter the score to be added to this pair for recommendations: ')
+                            testing = False
+                            try:
+                                float(score)
+                                testing = True
+                            except ValueError:
+                                    testing =  False
+                            if testing:
+                                score = float(score)                            
+                                cursor.execute('INSERT INTO recommendations (watched, recommended, score) VALUES (?,?,?);', (display_pairs[pair_number][0],display_pairs[pair_number][1], score,))
+                                print('added successful!')
+                            else:
+                                print('pleaseeeee enter a decimal!!!')                            
                     else:   # it is in the reconmmendations 
-                        option = input('this pair is in the reconmmendations, delete or not add(y/n): ')
+                        option = input('this pair is in the recommendations, delete or return and not delete or update score (y/n/u): ')
                         if option.lower() == 'y':
-                            cursor.execute('delete from reconmmendations where watched = ? and recommended = ?;', (display_pairs[pair_number][0], display_pairs[pair_number][1],))
+                            cursor.execute('delete from recommendations where watched = ? and recommended = ?;', (display_pairs[pair_number][0], display_pairs[pair_number][1],))
                             print('deleted successful!')
+                        if option.lower() == 'u':
+                            score = input('please enter the new score: ')
+                            testing = False
+                            try:
+                                float(score)
+                                testing = True
+                            except ValueError:
+                                    testing =  False
+                            if testing:
+                                score = float(score)
+                                cursor.execute('update recommendations set score = ? where watched = ? and recommended = ?;', (score, display_pairs[pair_number][0], display_pairs[pair_number][1],))
+                                print('updated the score successful!')  
+                            else:
+                                print('pleaseeeee enter a decimal!!!')
             else:
                 print('please eneter a valid option!')
         connection.commit()
@@ -538,61 +593,74 @@ def control():
         while continue_login:
             if user_type == 'e':
                 # editor account
-                option = input("you are loged into a editor account, to add a movie or cast member select 1\nto update a recommendation select 2\n\nto logout - type 'logout'")
+                option = input("\n\nyou are loged into a editor account, to add a movie or cast member enter 1\nto update a recommendation enter 2\nto logout - type 'logout'\nto exit type 'exit'\nenter your choice: ")
                 if option == '1':
                     add_movie()
                 elif option == '2':
                     update_recommendation()
                 elif option.lower() == 'logout':
                     continue_login = False
+                elif option.lower() == 'exit':
+                    continue_login = False
+                    continue_program = False
+                    print('thank you for user the program you will be exited and logged out!!')
                 else:
                     print('please enter a valid choice')
             else:
                 # customer account
-                temp_str_list = ['\nto start a session select 1', "\nto search for movies select 2 \nto end watching a movie select 3 \nto end the session select 4\nto logout - type 'logout\nenter your choice: "]
+                temp_str_list = ['\nto start a session type 1', "\nto search for movies type 2 \nto end watching a movie type 3 \nto end the session type 4\nto logout - type 'logout\nto exit type 'exit'\nenter your choice: "]
                 if session_data == None:
                     option = input('\nyou are loged into a customer account'+temp_str_list[0]+temp_str_list[1])
                 else:
                     option = input('\nyou are loged into a customer account and you started a session!!!\n\n'+temp_str_list[1])
                 
-                if session_data == None and option != 1:
-                    print('please start a session before doing thease operations')
-                
-                if option == '1':
-                    if session_data != None:
-                        print('you currently have a session on going please select another operation!')
-                    else:
-                        session_data = start_session(cid)
-                elif option == '2':
-                    sid = session_data[0]
-                    search_movie(sid, cid)
-                elif option == '3':
-                    display_watched_movies(sid, cid)
-                elif option == '4':
-                    end_session(session_data[0], session_data[1])
-                    session_data = None
-                elif option.lower() == 'logout':
-                    print('you will be logged out, the session will be ended automatically!')
-                    end_session(session_data[0], session_data[1])
+                if option.lower() == 'exit':
                     continue_login = False
+                    continue_program = False
+                    if session_data != None:
+                        end_session(session_data[0], session_data[1])
+                    print('thank you for user the program you will be exited and logged out!!')                
+                elif session_data == None and (option == '2' or option == '3' or option == '4'):
+                    print('please start a session before doing thease operations')                
                 else:
-                    print('please enter a valid choice')
+                    if option == '1':
+                        if session_data != None:
+                            print('you currently have a session on going please select another operation!')
+                        else:
+                            session_data = start_session(cid)
+                    elif option == '2':
+                        sid = session_data[0]
+                        search_movie(sid, cid)
+                    elif option == '3':
+                        display_watched_movies(sid, cid)
+                    elif option == '4':
+                        end_session(session_data[0], session_data[1])
+                        session_data = None
+                    elif option.lower() == 'logout':
+                        print('you will be logged out, the session will be ended automatically!')
+                        if session_data != None:
+                            end_session(session_data[0], session_data[1])                        
+                        continue_login = False
+                    elif option.lower() == 'exit':
+                        continue_login = False
+                        continue_program = False
+                        end_session(session_data[0], session_data[1])
+                        print('thank you for user the program you will be exited and logged out!!')                
+                    else:
+                        print('please enter a valid choice')
             
                          
 def main():
     global connection, cursor
-    
     # connection and set up tables
-    path = "./register.db"
+    data_base_name = input('please enter the data base name: ')
+    path = "./{}".format(data_base_name)
+    # path = "./register.db"
     connect(path)
     define_tables()
     # insert_values("prj-test.sql")
-    # search_movie()
     
     control()
-    
-    #testing   
-    # add_movie()
     
     
     connection.commit()
