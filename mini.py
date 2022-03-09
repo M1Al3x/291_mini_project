@@ -170,9 +170,9 @@ def end_session(sid, cid):
         cursor.execute('''Delete from started_watching where cid = ? and mid = ? and sid = ?;''', (cid,  watching[index][1], sid,)) 
         cursor.execute('''Delete from watch where sid = ? and cid=? and mid=?;''', (sid,cid, watching[index][1],))
         if not check_session:  
-            cursor.execute('''Insert into watch(sid, cid, mid, duration) Values (?, ?, ?, MIN((JulianDay(?) - JulianDay(?))*24*60, ?));''', (sid, cid, watching[index][1], current_date, watching[index][2], watching[index][3], ))
+            cursor.execute('''Insert into watch(sid, cid, mid, duration) Values (?, ?, ?, CAST(MIN((JulianDay(?) - JulianDay(?))*24*60, ?) as int));''', (sid, cid, watching[index][1], current_date, watching[index][2], watching[index][3], ))
         else:
-            cursor.execute('''Insert into watch(sid, cid, mid, duration) Values (?, ?, ?, MIN((JulianDay(?) - JulianDay(?))*24*60+?, ?));''', (sid, cid, watching[index][1], current_date, watching[index][2], check_session[0][3], watching[index][3], ))
+            cursor.execute('''Insert into watch(sid, cid, mid, duration) Values (?, ?, ?, CAST(MIN((JulianDay(?) - JulianDay(?))*24*60+?, ?) as int));''', (sid, cid, watching[index][1], current_date, watching[index][2], check_session[0][3], watching[index][3], ))
              
         index = index + 1    
         
@@ -180,9 +180,11 @@ def end_session(sid, cid):
     cursor.execute('select startdate from start_session where sid = ?;', (sid,))
     startdate = cursor.fetchall()
     startdate = startdate[0][0]
-    cursor.execute('update sessions set duration = (JulianDay(?) - JulianDay(?))*24*60 where sid = ?;', (startdate, current_date, sid))
+    cursor.execute('update sessions set duration = CAST((JulianDay(?) - JulianDay(?))*24*60 as int) where sid = ?;', (current_date,startdate, sid))
     cursor.execute('delete from start_session where sid = ?;', (sid,))
-    connection.commit()    
+    connection.commit()
+    cursor.execute('select * from sessions where sid = ?;', (sid,))
+    s = cursor.fetchall()
     return
 
 def search_movie(sid, cid):
@@ -340,9 +342,9 @@ def display_watched_movies(sid, cid):
                 cursor.execute('''Delete from watch where sid = ? and cid=? and mid=?;''', (sid,cid, watching[index][1],))
                 cursor.execute('''Delete from started_watching where cid = ? and mid = ? and sid = ?;''', (cid,  watching[index][1], sid,)) 
                 if not check_session:  
-                    cursor.execute('''Insert into watch(sid, cid, mid, duration) Values (?, ?, ?, MIN((JulianDay(?) - JulianDay(?))*24*60, ?));''', (sid, cid, watching[index][1], current_date, watching[index][2], watching[index][3], ))
+                    cursor.execute('''Insert into watch(sid, cid, mid, duration) Values (?, ?, ?, CAST(MIN((JulianDay(?) - JulianDay(?))*24*60, ?)as int));''', (sid, cid, watching[index][1], current_date, watching[index][2], watching[index][3], ))
                 else:
-                    cursor.execute('''Insert into watch(sid, cid, mid, duration) Values (?, ?, ?, MIN((JulianDay(?) - JulianDay(?))*24*60+?, ?));''', (sid, cid, watching[index][1], current_date, watching[index][2], check_session[0][3], watching[index][3], ))                
+                    cursor.execute('''Insert into watch(sid, cid, mid, duration) Values (?, ?, ?, CAST(MIN((JulianDay(?) - JulianDay(?))*24*60+?, ?)as int));''', (sid, cid, watching[index][1], current_date, watching[index][2], check_session[0][3], watching[index][3], ))                
                 break
             index = index + 1
         if index == len(watching):
@@ -415,7 +417,8 @@ def add_movie():
                             connection.commit()
                             print("you have added succefully!")                              
                         else:
-                            print('please eneter a year number, you will be returned to the main page')
+                            print('please eneter a year number, you will be returned to the main page')           
+                        
                     else:
                         cursor.execute('SELECT pid FROM casts WHERE pid = ? and mid = ?;', (cast_id, movie_id,))  
                         casts = cursor.fetchall()   
