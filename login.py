@@ -1,6 +1,7 @@
 import sqlite3
 import time
 import string
+import sys
 
 connection = None
 cursor = None
@@ -657,7 +658,7 @@ def control():
 def main():
     global connection, cursor
     # connection and set up tables
-    data_base_name = input('please enter the data base name: ')
+    data_base_name = sys.argv[1]
     path = "./{}".format(data_base_name)
     # path = "./register.db"
     connect(path)
