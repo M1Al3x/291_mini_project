@@ -535,8 +535,19 @@ def update_recommendation():
                     if display_pairs[pair_number][3] == 'not in':
                         option = input('this pair is not in the recommendations, add or not add(y/n): ')
                         if option.lower() == 'y':
-                            cursor.execute('INSERT INTO recommendations (watched, recommended, score) VALUES (?,?,?);', (display_pairs[pair_number][0],display_pairs[pair_number][1], display_pairs[pair_number][4],))
-                            print('added successful!')
+                            score = input('please enter the score to be added to this pair for recommendations: ')
+                            testing = False
+                            try:
+                                float(score)
+                                testing = True
+                            except ValueError:
+                                    testing =  False
+                            if testing:
+                                score = float(score)                            
+                                cursor.execute('INSERT INTO recommendations (watched, recommended, score) VALUES (?,?,?);', (display_pairs[pair_number][0],display_pairs[pair_number][1], score,))
+                                print('added successful!')
+                            else:
+                                print('pleaseeeee enter a decimal!!!')                            
                     else:   # it is in the reconmmendations 
                         option = input('this pair is in the recommendations, delete or return and not delete or update score (y/n/u): ')
                         if option.lower() == 'y':
