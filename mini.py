@@ -1,6 +1,7 @@
 import sqlite3
 import time
 import string
+import sys
 
 connection = None
 cursor = None
@@ -95,6 +96,10 @@ def login():
     else:
         username = input("Enter your username: ")
         username = username.lower()
+        while len(username)>4:
+            print("\nUsername should contain maximum 4 characters!!!\n")
+            username = input("Enter your username: ")
+            username = username.lower()            
         cursor.execute("SELECT pwd FROM customers where lower(cid) = ?;", (username,))
         user_exists=cursor.fetchall()
         cursor.execute("SELECT pwd FROM editors where lower(eid) = ?;", (username,))
@@ -262,29 +267,31 @@ def search_by_key_words():
     return movies
     
 def seeDetailedInfo(sid, cid, movie):
-    print("\n\nDetailed information for " + movie[0] + ", " + str(movie[1]) + " year, " + str(movie[2]) + " minutes")
-    mid = movie[3]
-    cursor.execute('''SELECT COUNT(DISTINCT w.cid)
-                      from movies m, watch w
-                      where m.mid = w.mid
-                      and m.mid = ?
-                      and w.duration*2>=m.runtime''', (mid,)) 
-    watched_by = cursor.fetchone()
-    print("\nThe movie is watched by " + str(watched_by[0]) + " customers.\n")
-    print("Cast: ")
-    cursor.execute('''SELECT p.name, c.role, p.pid
-                      from movies m, casts c, moviePeople p
-                      where m.mid = c.mid
-                      and c.pid = p.pid
-                      and m.mid = ?''', (mid,))
-    cast = cursor.fetchall()
-    index = 0
-    while(index < len(cast)):
-        print(str(index+1) + ". " + cast[index][0] + " played " + str(cast[index][1]))
-        index = index + 1
     inpMovie = ''
-    while inpMovie != 'w':
-        inpMovie = input("Do you want to subscribe on anyone? If yes, enter a number of cast member. If you want to start watching movie, enter 'w': ")
+    while inpMovie != 'w' and inpMovie != 'q':
+        print("\n\nDetailed information for " + movie[0] + ", " + str(movie[1]) + " year, " + str(movie[2]) + " minutes")
+        mid = movie[3]
+        cursor.execute('''SELECT COUNT(DISTINCT w.cid)
+                          from movies m, watch w
+                          where m.mid = w.mid
+                          and m.mid = ?
+                          and w.duration*2>=m.runtime''', (mid,)) 
+        watched_by = cursor.fetchone()
+        print("\nThe movie is watched by " + str(watched_by[0]) + " customers.\n")
+        print("Cast: ")
+        cursor.execute('''SELECT p.name, c.role, p.pid
+                          from movies m, casts c, moviePeople p
+                          where m.mid = c.mid
+                          and c.pid = p.pid
+                          and m.mid = ?''', (mid,))
+        cast = cursor.fetchall()
+        index = 0
+        while(index < len(cast)):
+            print(str(index+1) + ". " + cast[index][0] + " played " + str(cast[index][1]))
+            index = index + 1
+        print("\n")
+        inpMovie = ''
+        inpMovie = input("If you want to go back to main screen - enter 'q'. \nDo you want to subscribe on anyone? If yes, enter a number of cast member. \nIf you want to start watching movie, enter 'w':")
         index = 0
         subscr = False
         while(index < len(cast)):
@@ -293,7 +300,7 @@ def seeDetailedInfo(sid, cid, movie):
                 is_followed = cursor.fetchall()
                 if not is_followed:
                     cursor.execute('''Insert into follows(cid, pid) Values (?, ?);''', (cid,  cast[index][2]))
-                    print("Successfully subscribed")
+                    print("\nSuccessfully subscribed")
                 else:
                     print("Already subscribed")
                 subscr = True
@@ -400,12 +407,15 @@ def add_movie():
                         print("the cast memeber does not exist, please add them")
                         pid = cast_id
                         name = input("please enter the name to add to: ").lower()
-                        birthyear = int(input('please enter the birth year: '))
-                        data = (pid, name, birthyear)
-                        cursor.execute('INSERT INTO moviePeople (pid, name, birthYear) VALUES (?,?,?);', data) 
-                        connection.commit()
-                        print("you have added succefully!")            
-                        
+                        birthyear = input('please enter the birth year: ')
+                        if birthyear.isdigit():
+                            birthyear = int(birthyear)
+                            data = (pid, name, birthyear)
+                            cursor.execute('INSERT INTO moviePeople (pid, name, birthYear) VALUES (?,?,?);', data) 
+                            connection.commit()
+                            print("you have added succefully!")                              
+                        else:
+                            print('please eneter a year number, you will be returned to the main page')
                     else:
                         cursor.execute('SELECT pid FROM casts WHERE pid = ? and mid = ?;', (cast_id, movie_id,))  
                         casts = cursor.fetchall()   
@@ -647,7 +657,7 @@ def control():
 def main():
     global connection, cursor
     # connection and set up tables
-    data_base_name = input('please enter the data base name')
+    data_base_name = sys.argv
     path = "./{}".format(data_base_name)
     # path = "./register.db"
     connect(path)
