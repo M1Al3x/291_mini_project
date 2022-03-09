@@ -407,7 +407,7 @@ def add_movie():
                         print("the cast memeber does not exist, please add them")
                         pid = cast_id
                         name = input("please enter the name to add to: ").lower()
-                        birthyear = int(input('please enter the birth year: '))
+                        birthyear = input('please enter the birth year: ')
                         if birthyear.isdigit():
                             birthyear = int(birthyear)
                             data = (pid, name, birthyear)
