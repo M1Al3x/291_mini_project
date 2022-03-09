@@ -20,83 +20,9 @@ def define_tables():
     cursor.executescript('''
     drop table if exists started_watching;
     drop table if exists start_session;
-    drop table if exists editors;
-    drop table if exists follows;
-    drop table if exists watch;
-    drop table if exists sessions;
-    drop table if exists customers;
-    drop table if exists recommendations;
-    drop table if exists casts;
-    drop table if exists movies;
-    drop table if exists moviePeople;
     
     PRAGMA foreign_keys = ON;
     
-    create table moviePeople (
-      pid		char(4),
-      name		text,
-      birthYear	int,
-      primary key (pid)
-    );
-    create table movies (
-      mid		int,
-      title		text,
-      year		int,
-      runtime	int,
-      primary key (mid)
-    );
-    create table casts (
-      mid		int,
-      pid		char(4),
-      role		text,
-      primary key (mid,pid),
-      foreign key (mid) references movies,
-      foreign key (pid) references moviePeople
-    );
-    create table recommendations (
-      watched	int,
-      recommended	int,
-      score		float,
-      primary key (watched,recommended),
-      foreign key (watched) references movies,
-      foreign key (recommended) references movies
-    );
-    create table customers (
-      cid		char(4),
-      name		text,
-      pwd		text,
-      primary key (cid)
-    );
-    create table sessions (
-      sid		int,
-      cid		char(4),
-      sdate		date,
-      duration	int,
-      primary key (sid,cid),
-      foreign key (cid) references customers
-            on delete cascade
-    );
-    create table watch (
-      sid		int,
-      cid		char(4),
-      mid		int,
-      duration	int,
-      primary key (sid,cid,mid),
-      foreign key (sid,cid) references sessions,
-      foreign key (mid) references movies
-    );
-    create table follows (
-      cid		char(4),
-      pid		char(4),
-      primary key (cid,pid),
-      foreign key (cid) references customers,
-      foreign key (pid) references moviePeople
-    );
-    create table editors (
-      eid		char(4),
-      pwd		text,
-      primary key (eid)
-    );
     create table started_watching (
       sid		int,
       cid		char(4),
@@ -164,8 +90,7 @@ def login():
                     print("Sorry! Incorrect password!")
                     password = input("Enter your password: ")
                 print("Congratulations! Successful input!")  
-            user_type = "e"
-        print("To exit program type 'exit' at any stage of the program. To logout - type 'logout'!")  
+            user_type = "e" 
         return user_type, username 
     else:
         username = input("Enter your username: ")
@@ -189,7 +114,7 @@ def login():
                             INSERT INTO customers(cid, name, pwd) VALUES
                                 (?, ?, ?);
                         '''        
-        print("Congratulations! Successful input!")  
+        print("\nCongratulations! Successful input!")  
         cursor.execute(insert_user, (username, name, pwd,))
         connection.commit()
         return "u", username  
@@ -220,6 +145,7 @@ def start_session(cid):
     data = (sid, current_date_time)
     cursor.execute('INSERT INTO start_session (sid, startdate) VALUES (?,?);', data)
     data = (sid, cid, current_date_time, duration)
+    print("\nSuccessfuly started a session!")
     connection.commit()    
     return data
 
@@ -242,7 +168,7 @@ def end_session(sid, cid):
     cursor.execute('select startdate from start_session where sid = ?;', (sid,))
     startdate = cursor.fetchall()
     startdate = startdate[0][0]
-    cursor.execute('update sessions set duration = DATEDIFF(minute, ?, ?) where sid = ?;', (startdate, current_date, sid))
+    cursor.execute('update sessions set duration = (JulianDay(?) - JulianDay(?))*24*60 where sid = ?;', (startdate, current_date, sid))
     connection.commit()    
     return
 
@@ -329,7 +255,7 @@ def search_by_key_words():
     return movies
     
 def seeDetailedInfo(sid, cid, movie):
-    print("Detailed information for " + movie[0] + ", " + str(movie[1]) + " year, " + str(movie[2]) + " minutes")
+    print("\n\nDetailed information for " + movie[0] + ", " + str(movie[1]) + " year, " + str(movie[2]) + " minutes")
     mid = movie[3]
     cursor.execute('''SELECT COUNT(DISTINCT w.cid)
                       from movies m, watch w
@@ -337,7 +263,7 @@ def seeDetailedInfo(sid, cid, movie):
                       and m.mid = ?
                       and w.duration*2>=m.runtime''', (mid,)) 
     watched_by = cursor.fetchone()
-    print("The movie is watched by " + str(watched_by[0]) + " customers.")
+    print("\nThe movie is watched by " + str(watched_by[0]) + " customers.\n")
     print("Cast: ")
     cursor.execute('''SELECT p.name, c.role, p.pid
                       from movies m, casts c, moviePeople p
@@ -369,7 +295,7 @@ def seeDetailedInfo(sid, cid, movie):
         if subscr == False and inpMovie != 'w':
             print("Incorrect input")
     current_date = time.strftime("%Y-%m-%d %H:%M:%S")
-    cursor.execute('''Insert into started_watching(sid, cid, mid, sdate) Values (?, ?, ?, ?));''', (sid, cid, mid, current_date,))    
+    cursor.execute('''Insert into started_watching(sid, cid, mid, sdate) Values (?, ?, ?, ?);''', (sid, cid, mid, current_date,))    
     display_watched_movies(sid, cid)
     connection.commit()
     return
@@ -579,12 +505,12 @@ def control():
     continue_program = True
     while continue_program:
         print('welcome to the program please login')
-        option = input("To exit program type 'exit'. to login type anything and we will take you to log in!")
+        option = input("To exit program type 'exit'. to login type anything and we will take you to log in!: ")
         if option.lower() == 'exit':
             continue_program = False
             return
 
-        user_type, username = login()
+        user_type, cid = login()
         session_data = None
         continue_login = True
         while continue_login:
@@ -601,12 +527,12 @@ def control():
                     print('please enter a valid choice')
             else:
                 # customer account
-                option = input('''you are loged into a customer account, 
-                                  \nto start a session select 1
-                                  \nto search for movies select 2
-                                  \nto end watching a movie select 3
-                                  \nto end the session select 4
-                                  \nto logout - type 'logout' ''')
+                temp_str_list = ['\nto start a session select 1', "\nto search for movies select 2 \nto end watching a movie select 3 \nto end the session select 4\nto logout - type 'logout\nenter your choice: "]
+                if session_data == None:
+                    option = input('\nyou are loged into a customer account'+temp_str_list[0]+temp_str_list[1])
+                else:
+                    option = input('\nyou are loged into a customer account and you started a session!!!\n\n'+temp_str_list[1])
+                
                 if session_data == None and option != 1:
                     print('please start a session before doing thease operations')
                 
@@ -614,9 +540,10 @@ def control():
                     if session_data != None:
                         print('you currently have a session on going please select another operation!')
                     else:
-                        session_data = start_session(username)
+                        session_data = start_session(cid)
                 elif option == '2':
-                    search_movie()
+                    sid = session_data[0]
+                    search_movie(sid, cid)
                 elif option == '3':
                     pass
                 elif option == '4':
@@ -636,9 +563,9 @@ def main():
     path = "./register.db"
     connect(path)
     define_tables()
-    insert_values("prj-test.sql")
+    # insert_values("prj-test.sql")
     # search_movie()
-    current_date = time.strftime("%Y-%m-%d")
+    
     control()
     
     #testing   
@@ -649,7 +576,3 @@ def main():
     connection.close()
 if __name__ == "__main__":
     main()
-
-                                        
-                                        
-                                  
