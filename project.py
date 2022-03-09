@@ -20,83 +20,9 @@ def define_tables():
     cursor.executescript('''
     drop table if exists started_watching;
     drop table if exists start_session;
-    drop table if exists editors;
-    drop table if exists follows;
-    drop table if exists watch;
-    drop table if exists sessions;
-    drop table if exists customers;
-    drop table if exists recommendations;
-    drop table if exists casts;
-    drop table if exists movies;
-    drop table if exists moviePeople;
     
     PRAGMA foreign_keys = ON;
     
-    create table moviePeople (
-      pid		char(4),
-      name		text,
-      birthYear	int,
-      primary key (pid)
-    );
-    create table movies (
-      mid		int,
-      title		text,
-      year		int,
-      runtime	int,
-      primary key (mid)
-    );
-    create table casts (
-      mid		int,
-      pid		char(4),
-      role		text,
-      primary key (mid,pid),
-      foreign key (mid) references movies,
-      foreign key (pid) references moviePeople
-    );
-    create table recommendations (
-      watched	int,
-      recommended	int,
-      score		float,
-      primary key (watched,recommended),
-      foreign key (watched) references movies,
-      foreign key (recommended) references movies
-    );
-    create table customers (
-      cid		char(4),
-      name		text,
-      pwd		text,
-      primary key (cid)
-    );
-    create table sessions (
-      sid		int,
-      cid		char(4),
-      sdate		date,
-      duration	int,
-      primary key (sid,cid),
-      foreign key (cid) references customers
-            on delete cascade
-    );
-    create table watch (
-      sid		int,
-      cid		char(4),
-      mid		int,
-      duration	int,
-      primary key (sid,cid,mid),
-      foreign key (sid,cid) references sessions,
-      foreign key (mid) references movies
-    );
-    create table follows (
-      cid		char(4),
-      pid		char(4),
-      primary key (cid,pid),
-      foreign key (cid) references customers,
-      foreign key (pid) references moviePeople
-    );
-    create table editors (
-      eid		char(4),
-      pwd		text,
-      primary key (eid)
-    );
     create table started_watching (
       sid		int,
       cid		char(4),
@@ -110,13 +36,14 @@ def define_tables():
     create table start_session (
       sid		int,
       startdate		datetime,
+      primary key (sid)
     );''')
     connection.commit()
     return
 
 def insert_values(file_name):
     global connection, cursor
-    sql_file = open("file_name")
+    sql_file = open(file_name)
     sql_as_string = sql_file.read()
     cursor.executescript(sql_as_string)
     connection.commit()
@@ -125,32 +52,25 @@ def insert_values(file_name):
 def login():
     global connection, cursor
     user_type = "undef"
-    login_signup = input("Do you want to login or sign-up or go back?(l/s/logout): ")
-    if login_signup.lower() == 'logout':
-        print('you have loged out, you will be returned to the homescreen now')
-        return
+    login_signup = input("Do you want to login or sign-up?(l/s): ")
     while login_signup.lower()!="l" and login_signup.lower()!="s":
-        login_signup = input("Do you want to login or sign-up or go back?(l/s/logout): ")
-        if login_signup.lower() == 'logout':
-            print('you have loged out, you will be returned to the homescreen now')
-            return        
+        login_signup = input("Do you want to login or sign-up?(l/s): ")   
     if login_signup.lower()=="l":
         username = input("Enter your username: ")
+        username = username.lower()
         if len(username) > 4:
             print('please enter a correct username!\nyou will be returned to the homescreen now')
-        cursor.execute("SELECT pwd FROM customers where cid = ?;", (username,))
+        cursor.execute("SELECT pwd FROM customers where lower(cid) = ?;", (username,))
         user_exists=cursor.fetchall()
-        cursor.execute("SELECT pwd FROM editors where eid = ?;", (username,))
+        cursor.execute("SELECT pwd FROM editors where lower(eid) = ?;", (username,))
         editor_exists=cursor.fetchall()
-        print(user_exists)
-        print(editor_exists)
         if not user_exists and not editor_exists:
             print("Unfortunately there is no user with such username")
             while not user_exists and not editor_exists:
                 username = input("Enter your username: ")               
-                cursor.execute("SELECT pwd FROM customers where cid = ?;", (username,))
+                cursor.execute("SELECT pwd FROM customers where lower(cid) = ?;", (username,))
                 user_exists=cursor.fetchall()
-                cursor.execute("SELECT pwd FROM editors where eid = ?;", (username,))
+                cursor.execute("SELECT pwd FROM editors where lower(eid) = ?;", (username,))
                 editor_exists=cursor.fetchall()                
         password = input("Enter your password: ")
         if user_exists:
@@ -166,7 +86,7 @@ def login():
             if password == editor_exists[0][0]:
                 print("Congratulations! Successful input!")
             else:
-                while password != user_exists[0][0]:
+                while password != editor_exists[0][0]:
                     print("Sorry! Incorrect password!")
                     password = input("Enter your password: ")
                 print("Congratulations! Successful input!")  
@@ -175,17 +95,19 @@ def login():
         return user_type, username 
     else:
         username = input("Enter your username: ")
-        cursor.execute("SELECT pwd FROM customers where cid = ?;", (username,))
+        username = username.lower()
+        cursor.execute("SELECT pwd FROM customers where lower(cid) = ?;", (username,))
         user_exists=cursor.fetchall()
-        cursor.execute("SELECT pwd FROM editors where eid = ?;", (username,))
+        cursor.execute("SELECT pwd FROM editors where lower(eid) = ?;", (username,))
         editor_exists=cursor.fetchall()
         if user_exists or editor_exists:
             while user_exists or editor_exists:
                 print("Unfortunately this username is already taken.")
                 username = input("Enter your username: ")
-                cursor.execute("SELECT pwd FROM customers where cid = ?;", (username,))
+                username = username.lower()
+                cursor.execute("SELECT pwd FROM customers where lower(cid) = ?;", (username,))
                 user_exists=cursor.fetchall()
-                cursor.execute("SELECT pwd FROM editors where eid = ?;", (username,))
+                cursor.execute("SELECT pwd FROM editors where lower(eid) = ?;", (username,))
                 editor_exists=cursor.fetchall()
         name = input("Enter your name: ")
         pwd = input("Enter your pwd: ")
@@ -222,7 +144,7 @@ def start_session(cid):
     data = (sid, cid, current_date, duration)
     cursor.execute('INSERT INTO sessions (sid, cid, sdate, duration) VALUES (?,?,?,?);', data) 
     data = (sid, current_date_time)
-    cursor.execute('INSERT INTO start_session (sid, cid, startdate) VALUES (?,?);', data)
+    cursor.execute('INSERT INTO start_session (sid, startdate) VALUES (?,?);', data)
     data = (sid, cid, current_date_time, duration)
     connection.commit()    
     return data
@@ -250,7 +172,7 @@ def end_session(sid, cid):
     connection.commit()    
     return
 
-def search_movie():
+def search_movie(sid, cid):
     global connection, cursor
     #ask the user for the keywords and add it to a list
     movies = search_by_key_words() 
@@ -285,7 +207,7 @@ def search_movie():
                 indexEd = indexEd + 1
         
     if i=="c":
-        seeDetailedInfo("c100",movies[indexEd])
+        seeDetailedInfo(sid,cid,movies[indexEd])
     connection.commit()
     return
 
@@ -298,38 +220,38 @@ def search_by_key_words():
         keywords_list_updated = keywords_list_updated + (keyword,)
         keywords_list_updated = keywords_list_updated + (keyword,)
         keywords_list_updated = keywords_list_updated + (keyword,)
-        keywords_list_updated = keywords_list_updated + (keyword,)
     select_string = '''Select m1.title, m1.year, m1.runtime,m1.mid, (
                      '''
     for index in range(len(keywords_list)):
         if index != len(keywords_list) - 1:
-            select_string = select_string + '''(m1.title like ?  or m1.year like ? 
+            select_string = select_string + '''(m1.title like ? 
                                                 or EXISTS
                                                (SELECT m2.mid
                                                from movies m2, casts c, moviePeople p 
                                                where m2.mid = c.mid 
                                                and p.pid = c.pid
                                                and m2.mid = m1.mid 
-                                               and (p.name like ?
-                                                     or c.role like ?)))
+                                               and (lower(p.name) like ?
+                                                     or lower(c.role) like ?)))
                                                 +
                                             '''
         else:
-            select_string = select_string + '''(m1.title like ?  or m1.year like ? 
+            select_string = select_string + '''(m1.title like ? 
                                                or EXISTS
                                                (SELECT m2.mid
                                                from movies m2, casts c, moviePeople p 
                                                where m2.mid = c.mid 
                                                and p.pid = c.pid
                                                and m2.mid = m1.mid 
-                                               and (p.name like ?
-                                                     or c.role like ?)))) as 'cntGrp'
+                                               and (lower(p.name) like ?
+                                                     or lower(c.role) like ?)))) as 'cntGrp'
                                                from movies m1
                                                where cntGrp>=1
                                                order by cntGrp DESC;  
                                             '''  
     cursor.execute(select_string, keywords_list_updated)
     movies = cursor.fetchall()
+    print(movies)
     return movies
     
 def seeDetailedInfo(sid, cid, movie):
@@ -362,7 +284,6 @@ def seeDetailedInfo(sid, cid, movie):
             if(str(index+1) == inpMovie):
                 cursor.execute('''Select * from follows where cid = ? and pid = ?;''', (cid,  cast[index][2]))
                 is_followed = cursor.fetchall()
-                print(is_followed)
                 if not is_followed:
                     cursor.execute('''Insert into follows(cid, pid) Values (?, ?);''', (cid,  cast[index][2]))
                     print("Successfully subscribed")
@@ -486,7 +407,7 @@ def update_recommendation():
     print(current_date)
     
     if selection == '1':
-        cursor.execute('''select w1.mid, w2.mid, count(w1.cid) from watch w1, watch w2, sessions s1, sessions s2, movies m1, movies m2
+        cursor.execute('''select w1.mid, w2.mid, count(Distinct w1.cid) from watch w1, watch w2, sessions s1, sessions s2, movies m1, movies m2
                           where w1.mid != w2.mid 
                           and w1.cid = w2.cid
                           and s1.sid = w1.sid
@@ -498,11 +419,11 @@ def update_recommendation():
                           and 30 >= (JulianDay(?) - JulianDay(s1.sdate))
                           and 30 >= (JulianDay(?) - JulianDay(s2.sdate))
                           group by w1.mid, w2.mid
-                          order by count(w1.cid) desc;
+                          order by count(Distinct w1.cid) desc;
                           ''', (current_date, current_date,)) 
         
     elif selection == '2':
-        cursor.execute('''select w1.mid, w2.mid, count(w1.cid) from watch w1, watch w2, sessions s1, sessions s2, movies m1, movies m2
+        cursor.execute('''select w1.mid, w2.mid, count(Distinct w1.cid) from watch w1, watch w2, sessions s1, sessions s2, movies m1, movies m2
                           where w1.mid <> w2.mid 
                           and w1.cid = w2.cid
                           and s1.sid = w1.sid
@@ -514,10 +435,10 @@ def update_recommendation():
                           and 365 >= (JulianDay(?) - JulianDay(s1.sdate))
                           and 365 >= (JulianDay(?) - JulianDay(s2.sdate))
                           group by w1.mid, w2.mid
-                          order by count(w1.cid) desc;
+                          order by count(Distinct w1.cid) desc;
                           ''', (current_date, current_date,))  
     elif selection == '3':
-        cursor.execute('''select w1.mid, w2.mid, count(w1.cid) from watch w1, watch w2, movies m1, movies m2
+        cursor.execute('''select w1.mid, w2.mid, count(Distinct w1.cid) from watch w1, watch w2, movies m1, movies m2
                           where w1.mid <> w2.mid 
                           and w1.cid = w2.cid
                           and m1.mid = w1.mid
@@ -525,7 +446,7 @@ def update_recommendation():
                           and m2.mid = w2.mid
                           and w2.duration*2 >= m2.runtime
                           group by w1.mid, w2.mid
-                          order by count(w1.cid) desc;''')  
+                          order by count(Distinct w1.cid) desc;''')  
     else:
         print('print this is not a valid choice, you will be returned to the main page')
         return
@@ -584,7 +505,7 @@ def control():
     continue_program = True
     while continue_program:
         print('welcome to the program please login')
-        option = input("To exit program type 'exit'. to login type anything and we will take you to log in!")
+        option = input("To exit program type 'exit'. to login type anything and we will take you to log in!: ")
         if option.lower() == 'exit':
             continue_program = False
             return
@@ -606,12 +527,12 @@ def control():
                     print('please enter a valid choice')
             else:
                 # customer account
-                option = input('''you are loged into a customer account, 
-                                  \nto start a session select 1
-                                  \nto search for movies select 2
-                                  \nto end watching a movie select 3
-                                  \nto end the session select 4
-                                  \nto logout - type 'logout' ''')
+                temp_str_list = ['\nto start a session select 1', "\nto search for movies select 2 \nto end watching a movie select 3 \nto end the session select 4\nto logout - type 'logout\nenter your choice: "]
+                if session_data == None:
+                    option = input('\nyou are loged into a customer account'+temp_str_list[0]+temp_str_list[1])
+                else:
+                    option = input('\nyou are loged into a customer account'+temp_str_list[1])
+                
                 if session_data == None and option != 1:
                     print('please start a session before doing thease operations')
                 
@@ -638,34 +559,13 @@ def main():
     global connection, cursor
     
     # connection and set up tables
-    path = "./a2.db"
+    path = "./register.db"
     connect(path)
-    # define_tables()
-    # insert_values()
+    define_tables()
+    # insert_values("prj-test.sql")
     # search_movie()
-    current_date = time.strftime("%Y-%m-%d")
     
-    update_recommendation()
-    
-    cursor.execute('''select w1.mid, w2.mid from watch w1, watch w2, sessions s1, sessions s2, movies m1, movies m2
-                      where w1.mid != w2.mid 
-                      and w1.cid = w2.cid
-                      and s1.sid = w1.sid
-                      and s2.sid = w2.sid
-                      and 1 >= (strftime('%m', ?) - strftime('%m', s1.sdate))
-                      and 1 >= (strftime('%m', ?) - strftime('%m', s2.sdate))
-                      and 0 = (strftime('%Y', ?) - strftime('%Y', s1.sdate))
-                      and 0 = (strftime('%Y', ?) - strftime('%Y', s2.sdate))
-                      and m1.mid = w1.mid
-                      and m2.mid = w2.mid
-                      and w1.duration*2 >= m1.runtime
-                      and w2.duration*2 >= m2.runtime;
-                      ''', (current_date, current_date, current_date, current_date, ))     
-    all_pairs = cursor.fetchall()
-    print(all_pairs)
-    
-    
-    update_recommendation()
+    control()
     
     #testing   
     # add_movie()
