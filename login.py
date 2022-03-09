@@ -160,8 +160,15 @@ def end_session(sid, cid):
     
     
     while(index < len(watching)):
-        cursor.execute('''Insert into watch(sid, cid, mid, duration) Values (?, ?, ?, MIN((JulianDay(?) - JulianDay(?))*24*60, ?));''', (sid, cid, watching[index][1], current_date, watching[index][2], watching[index][3], ))
-        cursor.execute('''Delete from started_watching where cid = ? and mid = ? and sid = ?;''', (cid,  watching[index][1], sid,))        
+        cursor.execute('''Select * from watch where sid = ? and cid=? and mid=?;''', (sid,cid, watching[index][1],))
+        check_session = cursor.fetchall()
+        cursor.execute('''Delete from started_watching where cid = ? and mid = ? and sid = ?;''', (cid,  watching[index][1], sid,)) 
+        cursor.execute('''Delete from watch where sid = ? and cid=? and mid=?;''', (sid,cid, watching[index][1],))
+        if not check_session:  
+            cursor.execute('''Insert into watch(sid, cid, mid, duration) Values (?, ?, ?, MIN((JulianDay(?) - JulianDay(?))*24*60, ?));''', (sid, cid, watching[index][1], current_date, watching[index][2], watching[index][3], ))
+        else:
+            cursor.execute('''Insert into watch(sid, cid, mid, duration) Values (?, ?, ?, MIN((JulianDay(?) - JulianDay(?))*24*60+?, ?));''', (sid, cid, watching[index][1], current_date, watching[index][2], check_session[0][3], watching[index][3], ))
+             
         index = index + 1    
         
     # get all the duration of the movies watched in this session
@@ -169,6 +176,7 @@ def end_session(sid, cid):
     startdate = cursor.fetchall()
     startdate = startdate[0][0]
     cursor.execute('update sessions set duration = (JulianDay(?) - JulianDay(?))*24*60 where sid = ?;', (startdate, current_date, sid))
+    cursor.execute('delete from start_session where sid = ?;', (sid,))
     connection.commit()    
     return
 
@@ -251,7 +259,6 @@ def search_by_key_words():
                                             '''  
     cursor.execute(select_string, keywords_list_updated)
     movies = cursor.fetchall()
-    print(movies)
     return movies
     
 def seeDetailedInfo(sid, cid, movie):
@@ -295,30 +302,45 @@ def seeDetailedInfo(sid, cid, movie):
         if subscr == False and inpMovie != 'w':
             print("Incorrect input")
     current_date = time.strftime("%Y-%m-%d %H:%M:%S")
-    cursor.execute('''Insert into started_watching(sid, cid, mid, sdate) Values (?, ?, ?, ?);''', (sid, cid, mid, current_date,))    
-    display_watched_movies(sid, cid)
+    cursor.execute('''Select * from started_watching where sid = ? and cid = ? and mid = ?;''', (sid, cid, mid,))
+    check_add_movie = cursor.fetchall()
+    if not check_add_movie:
+        cursor.execute('''Insert into started_watching(sid, cid, mid, sdate) Values (?, ?, ?, ?);''', (sid, cid, mid, current_date,))    
+        print("\nYou are watching a movie now!\n")
+    else:
+        print("\nYou are already watching this movie\n")
     connection.commit()
     return
 
 def display_watched_movies(sid, cid):
-    while(1): 
+    stopWatching = ""
+    while stopWatching != "m":
         cursor.execute('''Select movies.title, movies.mid, started_watching.sdate, movies.runtime  from started_watching, movies where cid = ? and movies.mid = started_watching.mid and started_watching.sid = ?;''', (cid, sid,))
-        print("Movies that you are watching right now: ")
+        print("\nMovies that you are watching right now:\n")
         watching = cursor.fetchall()
         index = 0        
         while(index < len(watching)):
             print(str(index+1) + ". " + watching[index][0])
             index = index + 1 
-        stopWatching = input("Do you want to stop watching movies? If so, enter a number that you would like to stop wtaching: ")
+        stopWatching = input("Do you want to stop watching movies? If so, enter a number that you would like to stop watching. If you want to go to main menu - press m: ")
+        stopWatching = stopWatching.lower()
+        index = 0
         while(index < len(watching)):
             if stopWatching == str(index+1):
                 current_date = time.strftime("%Y-%m-%d %H:%M:%S")
-                cursor.execute('''Insert into watch(sid, cid, mid, duration) Values (?, ?, ?, MIN(DATEDIFF(minute, ?, ?), ?));''', (sid, cid, watching[index][1], watching[index][2], current_date, watching[index][3], ))
-                cursor.execute('''Delete from started_watching where cid = ? and mid = ? and sid = ?;''', (cid,  watching[index][1], sid,))
+                cursor.execute('''Select * from watch where sid = ? and cid=? and mid=?;''', (sid,cid, watching[index][1],))
+                check_session = cursor.fetchall()
+                cursor.execute('''Delete from watch where sid = ? and cid=? and mid=?;''', (sid,cid, watching[index][1],))
+                cursor.execute('''Delete from started_watching where cid = ? and mid = ? and sid = ?;''', (cid,  watching[index][1], sid,)) 
+                if not check_session:  
+                    cursor.execute('''Insert into watch(sid, cid, mid, duration) Values (?, ?, ?, MIN((JulianDay(?) - JulianDay(?))*24*60, ?));''', (sid, cid, watching[index][1], current_date, watching[index][2], watching[index][3], ))
+                else:
+                    cursor.execute('''Insert into watch(sid, cid, mid, duration) Values (?, ?, ?, MIN((JulianDay(?) - JulianDay(?))*24*60+?, ?));''', (sid, cid, watching[index][1], current_date, watching[index][2], check_session[0][3], watching[index][3], ))                
                 break
-            if index == len(watching):
-                print("You entered invalid index")            
             index = index + 1
+        if index == len(watching):
+            print("You entered invalid index")            
+        
             
 def add_movie():
     global connection, cursor
@@ -545,9 +567,10 @@ def control():
                     sid = session_data[0]
                     search_movie(sid, cid)
                 elif option == '3':
-                    pass
+                    display_watched_movies(sid, cid)
                 elif option == '4':
                     end_session(session_data[0], session_data[1])
+                    session_data = None
                 elif option.lower() == 'logout':
                     print('you will be logged out, the session will be ended automatically!')
                     end_session(session_data[0], session_data[1])
