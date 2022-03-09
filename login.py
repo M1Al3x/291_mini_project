@@ -407,10 +407,14 @@ def add_movie():
                         pid = cast_id
                         name = input("please enter the name to add to: ").lower()
                         birthyear = int(input('please enter the birth year: '))
-                        data = (pid, name, birthyear)
-                        cursor.execute('INSERT INTO moviePeople (pid, name, birthYear) VALUES (?,?,?);', data) 
-                        connection.commit()
-                        print("you have added succefully!")            
+                        if birthyear.isdigit():
+                            birthyear = int(birthyear)
+                            data = (pid, name, birthyear)
+                            cursor.execute('INSERT INTO moviePeople (pid, name, birthYear) VALUES (?,?,?);', data) 
+                            connection.commit()
+                            print("you have added succefully!")                              
+                        else:
+                            print('please eneter a year number, you will be returned to the main page')           
                         
                     else:
                         cursor.execute('SELECT pid FROM casts WHERE pid = ? and mid = ?;', (cast_id, movie_id,))  
