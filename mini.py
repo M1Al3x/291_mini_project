@@ -647,9 +647,9 @@ def control():
 def main():
     global connection, cursor
     # connection and set up tables
-    # data_base_name = input('please enter the data base name')
-    # path = "./{}".format(data_base_name)
-    path = "./register.db"
+    data_base_name = input('please enter the data base name')
+    path = "./{}".format(data_base_name)
+    # path = "./register.db"
     connect(path)
     define_tables()
     # insert_values("prj-test.sql")
